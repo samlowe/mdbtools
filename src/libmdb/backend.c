@@ -399,7 +399,6 @@ void __attribute__ ((constructor)) _mdb_init_backends()
 		NULL,
 		NULL,
 		quote_schema_name_rquotes_merge);
-	/* SOL added >>> */
 	mdb_register_backend("mysql-innodb",
 		MDB_SHEXP_DROPTABLE|MDB_SHEXP_CST_NOTNULL|MDB_SHEXP_CST_NOTEMPTY|MDB_SHEXP_INDEXES|MDB_SHEXP_RELATIONS|MDB_SHEXP_DEFVALUES, /* MDB_SHEXP_COMMENTS until MYSQL's comment syntax can be made to work with backend.c's structure */
 		mdb_mysql_types, &mdb_mysql_shortdate_type, NULL,
@@ -411,7 +410,6 @@ void __attribute__ ((constructor)) _mdb_init_backends()
 		" COMMENT %s", /* table comments only used in the create table statement in MYSQL, adding a comment later (as per backend.c's approach) is not possible without redefinition */
 		"ALTER TABLE %s COMMENT %s;\n",
 		quote_schema_name_rquotes_merge);
-	/* <<< SOL added */
 }
 void mdb_register_backend(char *backend_name, guint32 capabilities, MdbBackendType *backend_type, MdbBackendType *type_shortdate, MdbBackendType *type_autonum, const char *short_now, const char *long_now, const char *charset_statement, const char *drop_statement, const char *constaint_not_empty_statement, const char *column_comment_statement, const char *table_comment_statement, gchar* (*quote_schema_name)(const gchar*, const gchar*))
 {
@@ -493,10 +491,7 @@ mdb_print_indexes(FILE* outfile, MdbTableDef *table, char *dbnamespace)
 	MdbIndex *idx;
 	MdbColumn *col;
 
-	/* SOL >>> */
-	/*if (strcmp(mdb->backend_name, "postgres")) {*/
 	if (strcmp(mdb->backend_name, "postgres") && strcmp(mdb->backend_name, "mysql-innodb")) {
-	/* <<< SOL */
 		fprintf(outfile, "-- Indexes are not implemented for %s\n\n", mdb->backend_name);
 		return;
 	}
@@ -589,10 +584,8 @@ mdb_get_relationships(MdbHandle *mdb, const gchar *dbnamespace, const char* tabl
 		backend = 2;
 	} else if (!strcmp(mdb->backend_name, "sqlite")) {
 		backend = 3;
-	/* SOL ADDED >>> */
 	} else if (!strcmp(mdb->backend_name, "mysql-innodb")) {
 		backend = 4;
-	/* <<< SOL ADDED */
 	} else {
 		if (is_init == 0) { /* the first time through */
 			is_init = 1;
@@ -668,9 +661,7 @@ mdb_get_relationships(MdbHandle *mdb, const gchar *dbnamespace, const char* tabl
 		  case 1:  /* oracle */
 		  case 2:  /* postgres */
 		  case 3:  /* sqlite */
-		  /* SOL ADDED >>> */
 		  case 4:  /* mysql-innodb */
-		  /* <<< SOL ADDED */
 			text = g_strconcat(
 				"ALTER TABLE ", quoted_table_1,
 				" ADD CONSTRAINT ", quoted_constraint_name,
@@ -785,8 +776,8 @@ generate_table_schema(FILE *outfile, MdbCatalogEntry *entry, char *dbnamespace, 
 				/* access booleans are false by default */
 				fputs(" DEFAULT FALSE", outfile);
 		}
-		/* SOL >>> */
-		if (!strcmp(mdb->backend_name, "mysql-innodb")) {
+		
+		if (!strcmp(mdb->backend_name, "mysql-innodb")) { /* MySQL column comments can only be done with the definition statment */
 			if (col->props) {
 				prop_value = mdb_col_get_prop(col, "Description");
 				if (prop_value) {
@@ -797,20 +788,17 @@ generate_table_schema(FILE *outfile, MdbCatalogEntry *entry, char *dbnamespace, 
 				}
 			}
 		}
-		/* <<< SOL */
+
 		if (i < table->num_cols - 1)
 			fputs(", \n", outfile);
 		else
 			fputs("\n", outfile);
 	} /* for */
 
-	/* SOL ADDED >>> */
 	if (!strcmp(mdb->backend_name, "mysql-innodb")) 
 		fputs(") ENGINE=INNODB;\n", outfile);
 	else
 		fputs(");\n", outfile);
-	/* fputs(");\n", outfile); */
-	/* <<< SOL ADDED */
 
 	/* Add the constraints on columns */
 	for (i = 0; i < table->num_cols; i++) {
@@ -830,9 +818,7 @@ generate_table_schema(FILE *outfile, MdbCatalogEntry *entry, char *dbnamespace, 
 		}
 
 		if (export_options & MDB_SHEXP_COMMENTS) {
-			/* SOL >>> */
 			if (strcmp(mdb->backend_name, "mysql-innodb")) {	/* for mysql the column comments are done in the create statement not subsequently here */
-			/* <<< SOL */
 				prop_value = mdb_col_get_prop(col, "Description");
 				if (prop_value) {
 					char *comment = quote_with_squotes(prop_value);
@@ -841,9 +827,7 @@ generate_table_schema(FILE *outfile, MdbCatalogEntry *entry, char *dbnamespace, 
 						quoted_table_name, quoted_name, comment);
 					g_free(comment);
 				}
-			/* SOL >>> */
 			}
-			/* <<< SOL */
 		}
 
 		g_free(quoted_name);
